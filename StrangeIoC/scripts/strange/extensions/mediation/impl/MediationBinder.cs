@@ -64,6 +64,10 @@ namespace strange.extensions.mediation.impl
 					case MediationEvent.DESTROYED:
 						unmapView (view, binding);
 						break;
+                    case MediationEvent.ENABLED:
+                        enableView (view, binding);
+                    case MediationEvent.DISABLED:
+                        disableView (view, binding);
 					default:
 						break;
 				}
@@ -99,9 +103,9 @@ namespace strange.extensions.mediation.impl
 			injectionBinder.injector.Inject (mono, false);
 		}
 
-		new public IMediationBinding Bind<T> ()
+		public override IBinding Bind<T> ()
 		{
-			return base.Bind<T> () as IMediationBinding;
+			return base.Bind<T> ();
 		}
 
 		public IMediationBinding BindView<T>() where T : MonoBehaviour
@@ -127,16 +131,16 @@ namespace strange.extensions.mediation.impl
 					{
 						throw new MediationException(viewType + "mapped to itself. The result would be a stack overflow.", MediationExceptionType.MEDIATOR_VIEW_STACK_OVERFLOW);
 					}
-					MonoBehaviour mediator = mono.gameObject.AddComponent(mediatorType) as MonoBehaviour;
+
+				    MonoBehaviour mediator = mono.gameObject.GetComponent(mediatorType) as MonoBehaviour ??
+				        mono.gameObject.AddComponent(mediatorType) as MonoBehaviour;
 					if (mediator == null)
 						throw new MediationException ("The view: " + viewType.ToString() + " is mapped to mediator: " + mediatorType.ToString() + ". AddComponent resulted in null, which probably means " + mediatorType.ToString().Substring(mediatorType.ToString().LastIndexOf(".")+1) + " is not a MonoBehaviour.", MediationExceptionType.NULL_MEDIATOR);
 					if (mediator is IMediator)
 						((IMediator)mediator).PreRegister ();
-
-					Type typeToInject = (binding.abstraction == null || binding.abstraction.Equals(BindingConst.NULLOID)) ? viewType : binding.abstraction as Type;
-					injectionBinder.Bind (typeToInject).ToValue (view).ToInject(false);
+					injectionBinder.Bind (viewType).ToValue (view).ToInject(false);
 					injectionBinder.injector.Inject (mediator);
-					injectionBinder.Unbind(typeToInject);
+					injectionBinder.Unbind(viewType);
 					if (mediator is IMediator)
 						((IMediator)mediator).OnRegister ();
 				}
@@ -165,13 +169,47 @@ namespace strange.extensions.mediation.impl
 			}
 		}
 
-		private void enableView(IView view)
+		private void enableView(IView view, IMediationBinding binding)
 		{
-		}
+            Type viewType = view.GetType();
 
-		private void disableView(IView view)
+            if (bindings.ContainsKey(viewType))
+            {
+                object[] values = binding.value as object[];
+                int aa = values.Length;
+                for (int a = 0; a < aa; a++)
+                {
+                    Type mediatorType = values[a] as Type;
+                    MonoBehaviour mono = view as MonoBehaviour;
+                    IMediator mediator = mono.GetComponent(mediatorType) as IMediator;
+                    if (mediator != null)
+                    {
+                        mediator.OnEnabled();
+                    }
+                }
+            }
+        }
+
+		private void disableView(IView view, IMediationBinding binding)
 		{
-		}
+            Type viewType = view.GetType();
+
+            if (bindings.ContainsKey(viewType))
+            {
+                object[] values = binding.value as object[];
+                int aa = values.Length;
+                for (int a = 0; a < aa; a++)
+                {
+                    Type mediatorType = values[a] as Type;
+                    MonoBehaviour mono = view as MonoBehaviour;
+                    IMediator mediator = mono.GetComponent(mediatorType) as IMediator;
+                    if (mediator != null)
+                    {
+                        mediator.OnDisabled();
+                    }
+                }
+            }
+        }
 	}
 }
 

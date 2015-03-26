@@ -215,12 +215,14 @@ namespace strange.extensions.context.impl
 		
 		override public IContext SetContextView(object view)
 		{
-			contextView = (view as MonoBehaviour).gameObject;
-			if (contextView == null)
+		    ContextView cntxtView = view as ContextView;
+			if (cntxtView == null)
 			{
 				throw new ContextException("MVCSContext requires a ContextView of type MonoBehaviour", ContextExceptionType.NO_CONTEXT_VIEW);
 			}
-			return this;
+            contextView = cntxtView.gameObject;
+		    cntxtView.context = this;
+            return this;
 		}
 
 		/// Map the relationships between the Binders.
@@ -316,7 +318,17 @@ namespace strange.extensions.context.impl
 			mediationBinder.Trigger(MediationEvent.DESTROYED, view as IView);
 		}
 
-		/// Caches early-riser Views.
+        override public void EnableView(object view)
+        {
+            mediationBinder.Trigger(MediationEvent.ENABLED, view as IView);
+        }
+
+	    override public void DisableView(object view)
+	    {
+            mediationBinder.Trigger(MediationEvent.DISABLED, view as IView);
+	    }
+
+	    /// Caches early-riser Views.
 		/// 
 		/// If a View is on stage at startup, it's possible for that
 		/// View to be Awake before this Context has finished initing.

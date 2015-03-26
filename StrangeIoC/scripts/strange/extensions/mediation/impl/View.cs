@@ -69,7 +69,7 @@ namespace strange.extensions.mediation.impl
 		protected virtual void Awake ()
 		{
 			if (autoRegisterWithContext && !registeredWithContext)
-				bubbleToContext(this, true, false);
+				bubbleToContext(this, BubbleType.Add, false);
 		}
 
 		/// A MonoBehaviour Start handler
@@ -78,7 +78,7 @@ namespace strange.extensions.mediation.impl
 		protected virtual void Start ()
 		{
 			if (autoRegisterWithContext && !registeredWithContext)
-				bubbleToContext(this, true, true);
+				bubbleToContext(this, BubbleType.Add, true);
 		}
 
 		/// A MonoBehaviour OnDestroy handler
@@ -86,13 +86,38 @@ namespace strange.extensions.mediation.impl
 		/// destroyed.
 		protected virtual void OnDestroy ()
 		{
-			bubbleToContext(this, false, false);
+			bubbleToContext(this, BubbleType.Remove, false);
 		}
+
+        /// A MonoBehaviour OnEnable handler
+        /// The View will inform the Context that it is was enabled
+	    protected virtual void OnEnable ()
+	    {
+            bubbleToContext(this, BubbleType.Enable, false);	        
+	    }
+
+        /// A MonoBehaviour OnEnable handler
+        /// The View will inform the Context that it is was disabled
+        protected virtual void OnDisable ()
+        {
+            bubbleToContext(this, BubbleType.Disable, false);	        
+        }
+
+        /// <summary>
+        /// Determines the event the View is bubbling to the Context
+        /// </summary>
+	    protected enum BubbleType
+	    {
+	        Add,
+            Remove,
+            Enable,
+            Disable
+	    }
 
 		/// Recurses through Transform.parent to find the GameObject to which ContextView is attached
 		/// Has a loop limit of 100 levels.
 		/// By default, raises an Exception if no Context is found.
-		virtual protected void bubbleToContext(MonoBehaviour view, bool toAdd, bool finalTry)
+		virtual protected void bubbleToContext(MonoBehaviour view, BubbleType type, bool finalTry)
 		{
 			const int LOOP_MAX = 100;
 			int loopLimiter = 0;
@@ -104,24 +129,40 @@ namespace strange.extensions.mediation.impl
 				if (trans.gameObject.GetComponent<ContextView>() != null)
 				{
 					ContextView contextView = trans.gameObject.GetComponent<ContextView>() as ContextView;
+
 					if (contextView.context != null)
 					{
 						IContext context = contextView.context;
-						if (toAdd)
-						{
-							context.AddView(view);
-							registeredWithContext = true;
-							return;
-						}
-						else
-						{
-							context.RemoveView(view);
-							return;
-						}
+
+					    bool success = true;
+					    switch (type)
+					    {
+					        case BubbleType.Add:
+							    context.AddView(view);
+							    registeredWithContext = true;
+					            break;                            
+                            case BubbleType.Remove:
+                                context.RemoveView(view);
+					            break;
+                            case BubbleType.Enable:
+                                context.EnableView(view);
+					            break;
+                            case BubbleType.Disable:
+                                context.DisableView(view);
+					            break;
+                            default:
+					            success = false;
+					            break;
+					    }
+
+					    if (success)
+					    {
+					        return;
+					    }
 					}
 				}
 			}
-			if (requiresContext && finalTry)
+			if (requiresContext && finalTry && type == BubbleType.Add)
 			{
 				//last ditch. If there's a Context anywhere, we'll use it!
 				if (Context.firstContext != null)
